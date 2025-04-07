@@ -1,0 +1,599 @@
+/* =======================================================
+   Base Styles
+========================================================= */
+* {
+  box-sizing: border-box;
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: 'Arial', sans-serif;
+}
+
+/* =======================================================
+   Calendar Container and Top Summary Bar
+========================================================= */
+.calendar1 {
+  background-color: #f9f9f9;
+  padding: 1rem;
+}
+
+.top-summary-bar {
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 1rem;
+}
+
+/* =======================================================
+   Top Header / Summary Bar
+========================================================= */
+.summary-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.summary-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 1rem;
+}
+
+.summary-label {
+  color: #666;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.summary-value {
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+/* Positive/Negative growth indicators */
+.positive {
+  color: green;
+}
+
+.negative {
+  color: red;
+}
+
+/* =======================================================
+   Layout: Sidebar and Main Content
+========================================================= */
+.layout-container {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: 1rem;
+  min-height: calc(100vh - 60px);
+}
+
+.sidebar {
+  background-color: #f8f9fa;
+  border-right: 1px solid #ddd;
+  padding: 1rem;
+}
+
+.main-content {
+  padding: 1rem;
+  overflow: auto;
+}
+
+/* =======================================================
+   Sidebar Filters
+========================================================= */
+.sidebar h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.filter-group {
+  margin-bottom: 1.5rem;
+}
+
+.filter-group label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.filter-select {
+  width: 100%;
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  background-color: #fff;
+}
+
+.filter-select:hover {
+  border-color: #b3b3b3;
+}
+
+.filter-select:focus {
+  border-color: #2196F3;
+  outline: none;
+}
+
+/* =======================================================
+   CSV Uploader
+========================================================= */
+.file-uploader {
+  margin-bottom: 2rem;
+  font-size: 0.85rem;
+}
+
+.file-uploader label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+}
+
+.file-uploader input[type="file"] {
+  width: 100%;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  color: transparent;
+  cursor: pointer;
+}
+
+.file-uploader input[type="file"]::-webkit-file-upload-button {
+  visibility: hidden;
+}
+
+.file-uploader input[type="file"]::before {
+  content: 'Select CSV file';
+  display: inline-block;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  white-space: nowrap;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: #333;
+}
+
+.file-uploader input[type="file"]:hover::before {
+  background: #f1f1f1;
+}
+
+.file-name {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =======================================================
+   Charts
+========================================================= */
+.chart-container {
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.chart-title {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+/* Stacked Bar Chart */
+.stacked-bar-chart-svg {
+  width: 100%;
+  height: auto;
+  min-height: 230px;
+  background-color: #fafafa;
+}
+
+/* =======================================================
+   Month Timeline (Cards)
+========================================================= */
+.month-timeline-container {
+  margin-bottom: 1.5rem;
+}
+
+.month-timeline-title {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.month-cards-row {
+  display: grid;
+  grid-gap: 1rem;
+  margin: 1rem 0;
+}
+
+.month-card {
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.month-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.month-card.selected {
+  border-color: #ff4444;
+  box-shadow: 0 0 0 2px rgba(255, 68, 68, 0.2);
+}
+
+.month-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.month-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.month-total {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.mini-stacked-bar {
+  display: flex;
+  height: 10px;
+  width: 100%;
+  margin: 0.5rem 0;
+  border-radius: 3px;
+  overflow: hidden;
+  background-color: #eee;
+}
+
+.sparkline-container {
+  height: 30px;
+  margin: 0.5rem 0;
+  position: relative;
+}
+
+.sparkline {
+  width: 100%;
+  height: 100%;
+}
+
+.contract-badges {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  padding: 0.2rem 0.4rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.badge-new {
+  background-color: rgba(40, 167, 69, 0.15);
+  color: #28a745;
+}
+
+.badge-ending {
+  background-color: rgba(220, 53, 69, 0.15);
+  color: #dc3545;
+}
+
+.badge-icon {
+  margin-right: 0.2rem;
+  font-size: 0.7rem;
+}
+
+.provider-segment {
+  height: 100%;
+}
+
+/* Provider Breakdown List */
+.provider-bars {
+  margin-top: 0.5rem;
+}
+
+.provider-bar-container {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  margin-bottom: 0.2rem;
+}
+
+.provider-label {
+  display: flex;
+  align-items: center;
+}
+
+.provider-color {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+/* =======================================================
+   Month Details Section
+========================================================= */
+.month-details {
+  margin-bottom: 2rem;
+}
+
+.month-details h3 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.detail-container {
+  display: grid;
+  grid-gap: 1rem;
+}
+
+/* =======================================================
+   Contract Events
+========================================================= */
+.event-section {
+  margin-bottom: 1rem;
+}
+
+.event-section h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+}
+
+.event-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.event-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.event-marker {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+}
+
+.event-date {
+  flex: 0 0 60px;
+  font-weight: 600;
+}
+
+/* =======================================================
+   Agreements Section
+========================================================= */
+.agreements-section h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+}
+
+.provider-agreements {
+  position: relative;
+}
+
+.provider-agreements-item {
+  margin-bottom: 0.75rem;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.provider-summary-item {
+  display: flex;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #eee;
+  font-size: 0.85rem;
+  background-color: #f8f8f8;
+}
+
+.provider-color-block {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 0.5rem;
+}
+
+.provider-summary-name {
+  flex: 1;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.provider-summary-amount {
+  margin-right: 1rem;
+}
+
+.provider-summary-percent {
+  color: #666;
+  font-size: 0.8rem;
+}
+
+.provider-agreements-list {
+  padding: 0.4rem;
+}
+
+.agreement-item {
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  width: 100%;
+}
+
+.agreement-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.agreement-color {
+  flex: 0 0 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.agreement-name {
+  flex: 1;
+  min-width: 0;
+  padding-right: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agreement-amount {
+  flex: 0 0 auto;
+  font-weight: 500;
+  margin-left: auto;
+  text-align: right;
+  min-width: 80px;
+}
+
+.agreement-services {
+  margin-top: 0.3rem;
+  margin-left: 1rem;
+  font-size: 0.75rem;
+  color: #666;
+  font-style: italic;
+}
+
+/* Hover Card for Agreement Details */
+.contract-hover-card {
+  position: absolute;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  z-index: 10;
+  min-width: 200px;
+  font-size: 0.8rem;
+}
+
+.hover-card-title {
+  font-weight: bold;
+  margin-bottom: 0.3rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.3rem;
+}
+
+/* =======================================================
+   Loading State
+========================================================= */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1.2rem;
+  color: #666;
+}
+
+/* =======================================================
+   Responsive Media Queries
+========================================================= */
+
+/* 1 column for very small screens (up to 480px) */
+@media (max-width: 480px) {
+  .layout-container {
+    grid-template-columns: 1fr;
+  }
+  .month-cards-row {
+    grid-template-columns: 1fr;
+  }
+  .detail-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 2 columns for small screens (481px to 767px) */
+@media (min-width: 481px) and (max-width: 767px) {
+  .layout-container {
+    grid-template-columns: 1fr;
+  }
+  .month-cards-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .detail-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 3 columns for tablets (768px to 991px) */
+@media (min-width: 768px) and (max-width: 991px) {
+  .layout-container {
+    grid-template-columns: 250px 1fr;
+  }
+  .month-cards-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .detail-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 4 columns for laptops (992px to 1199px) */
+@media (min-width: 992px) and (max-width: 1199px) {
+  .layout-container {
+    grid-template-columns: 250px 1fr;
+  }
+  .month-cards-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .detail-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 6 columns for larger screens (1200px and above) */
+@media (min-width: 1200px) {
+  .layout-container {
+    grid-template-columns: 250px 1fr;
+  }
+  .month-cards-row {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .detail-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -1,0 +1,33 @@
+.panel-group {
+    display: flex;
+    width: 100%;
+    border: 1px solid #e5e7eb;
+    background: white;
+    border-radius: 0 0 0.5rem 0.5rem;
+    min-height: calc(100vh - 4rem);
+  }
+  
+  .resize-handle {
+    flex: 0 0 4px;
+    background: #f3f4f6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: col-resize;
+    transition: background-color 0.2s;
+  }
+  
+  .resize-handle:hover {
+    background: #e5e7eb;
+  }
+  
+  .resize-handle:active {
+    background: #d1d5db;
+  }
+  
+  .handle-bar {
+    width: 2px;
+    height: 2rem;
+    background: #9ca3af;
+    border-radius: 1px;
+  }

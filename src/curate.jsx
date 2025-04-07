@@ -14,6 +14,8 @@ const DataNormalizer = () => {
   const [normalizedData, setNormalizedData] = useState([]);
   const [changesMap, setChangesMap] = useState({});
   const [fileName, setFileName] = useState('normalized_contract_data.csv');
+  const [carrierNames, setCarrierNames] = useState([]);
+  const [useLookupTable, setUseLookupTable] = useState(false);
 
   const toggleDuplicateSelection = (groupKey, recordIndex) => {
     setSelectedDuplicates(prev => {
@@ -51,11 +53,31 @@ const DataNormalizer = () => {
     'Agreement Title'
   ];
 
+  // Add new helper function
+  const findCarrierMatch = (name) => {
+    if (!name || !carrierNames.length) return null;
+    
+    const normalizedInput = name.toLowerCase().trim();
+    
+    return carrierNames.find(carrier => {
+      const variations = [
+        carrier.Name,
+        carrier.Alias1,
+        carrier.Alias2,
+        carrier.Alias3
+      ].filter(Boolean).map(v => v.toLowerCase().trim());
+      
+      return variations.some(v => 
+        normalizedInput.includes(v) || v.includes(normalizedInput)
+      );
+    });
+  };
+
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/data/contract_analysis_output (3-21).csv');
+        const response = await fetch('/data/contract_analysis_output (4-6).csv');
         const text = await response.text();
         
         Papa.parse(text, {
@@ -98,6 +120,27 @@ const DataNormalizer = () => {
     };
     
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const loadCarrierNames = async () => {
+      try {
+        const response = await fetch('/data/CarrierNames.csv');
+        const text = await response.text();
+        
+        Papa.parse(text, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            setCarrierNames(results.data);
+          }
+        });
+      } catch (error) {
+        console.error('Error loading carrier names:', error);
+      }
+    };
+
+    loadCarrierNames();
   }, []);
 
   // Check for duplicates in the data
@@ -299,6 +342,39 @@ const DataNormalizer = () => {
     // Recalculate frequencies with normalized data
     calculateFrequencies(newData);
   };
+
+  // In the Value Normalization Step section
+  {showNormalizationStep && selectedField === 'Party1 Name' && (
+    <div className="mb-4">
+      <label className="flex items-center space-x-2">
+        <input
+          type="checkbox"
+          checked={useLookupTable}
+          onChange={() => {
+            setUseLookupTable(!useLookupTable);
+            if (!useLookupTable) {
+              // When enabling lookup, try to match all values
+              const newChangesMap = { ...changesMap };
+              if (!newChangesMap['Party1 Name']) {
+                newChangesMap['Party1 Name'] = {};
+              }
+  
+              frequencies['Party1 Name']?.forEach(item => {
+                const match = findCarrierMatch(item.value);
+                if (match) {
+                  newChangesMap['Party1 Name'][item.value] = match.Name;
+                }
+              });
+  
+              setChangesMap(newChangesMap);
+            }
+          }}
+          className="form-checkbox h-4 w-4 text-blue-600"
+        />
+        <span>Use Carrier Names Lookup Table</span>
+      </label>
+    </div>
+  )}
 
   // Apply all suggested normalizations at once
   const applyAllNormalizations = () => {
@@ -610,6 +686,21 @@ const DataNormalizer = () => {
                       </td>
                       <td className="p-2 text-center">{pair.similarity}</td>
                       <td className="p-2 text-center">
+                        {useLookupTable && selectedField === 'Party1 Name' && (
+                          <div className="text-sm text-gray-600 mb-2">
+                            {(() => {
+                              const match1 = findCarrierMatch(pair.value1);
+                              const match2 = findCarrierMatch(pair.value2);
+                              return (
+                                <>
+                                  {match1 && <div>Match 1: {match1.Name}</div>}
+                                  {match2 && <div>Match 2: {match2.Name}</div>}
+                                </>
+                              );
+                            })()}
+                          </div>  
+                        )}
+                      <td className="p-2 text-center">
                         {editingStates[pair.id] ? (
                           <div className="flex flex-col space-y-2">
                             <input
@@ -655,6 +746,7 @@ const DataNormalizer = () => {
                         )}
                       </td>
                     </tr>
+                    
                   ))}
                 </tbody>
               </table>
