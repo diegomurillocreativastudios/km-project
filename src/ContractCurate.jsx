@@ -151,17 +151,19 @@ const normalizeForMatching = (str) => {
 
 const getWeightedWordScore = (str1, str2) => {
   // Normalize strings: lowercase, remove punctuation, and split into words
-  const normalize = (str) => str.toLowerCase()
-    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .split(' ');
+  const normalize = (str) =>
+    str
+      .toLowerCase()
+      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ');
 
   const words1 = normalize(str1);
   const words2 = normalize(str2);
   let score = 0;
   let totalWeight = 0;
-  
+
   // Exact first word or first two words match gets high score
   if (words1[0] === words2[0]) {
     if (words1.length === 1 || words2.length === 1) {
@@ -175,14 +177,14 @@ const getWeightedWordScore = (str1, str2) => {
 
   // Weight decreases for each word position
   const weights = [0.5, 0.3, 0.2];
-  
+
   // Compare remaining words with position-based weights
   const maxWords = Math.min(weights.length, Math.max(words1.length, words2.length));
   for (let i = 0; i < maxWords; i++) {
     const word1 = words1[i] || '';
     const word2 = words2[i] || '';
     const weight = weights[i];
-    
+
     if (word1 === word2) {
       score += weight;
     } else if (word1.includes(word2) || word2.includes(word1)) {
@@ -253,27 +255,27 @@ const NormalizationDialogForField = ({
   // Lookup function exclusively for Party1 Names
   const findCarrierMatch = (name, carrierNames) => {
     if (!name || !carrierNames?.length) return null;
-    
+
     const normalizedInput = normalizeForMatching(name);
     let bestMatch = null;
     let bestScore = 0;
-    
+
     const getWeightedWordScore = (str1, str2) => {
       const words1 = str1.split(' ');
       const words2 = str2.split(' ');
       let score = 0;
       let totalWeight = 0;
-      
+
       // Weight decreases for each word position
       const weights = [0.5, 0.3, 0.2];
-      
+
       // Compare words with position-based weights
       const maxWords = Math.min(weights.length, Math.max(words1.length, words2.length));
       for (let i = 0; i < maxWords; i++) {
         const word1 = words1[i] || '';
         const word2 = words2[i] || '';
         const weight = weights[i];
-        
+
         if (word1 === word2) {
           score += weight;
         } else if (word1.includes(word2) || word2.includes(word1)) {
@@ -281,19 +283,18 @@ const NormalizationDialogForField = ({
         }
         totalWeight += weight;
       }
-
       return score / totalWeight;
     };
 
-    carrierNames.forEach(carrier => {
+    carrierNames.forEach((carrier) => {
       const variations = [
         carrier.Name,
         carrier.Alias1,
         carrier.Alias2,
-        carrier.Alias3
+        carrier.Alias3,
       ].filter(Boolean);
 
-      variations.forEach(variation => {
+      variations.forEach((variation) => {
         const normalizedVariation = normalizeForMatching(variation);
         let score = 0;
 
@@ -302,13 +303,17 @@ const NormalizationDialogForField = ({
           score = 1;
         }
         // Number-based names (like 8x8)
-        else if (/\d/.test(normalizedInput) && 
-                 normalizedInput.replace(/\s+/g, '') === normalizedVariation.replace(/\s+/g, '')) {
+        else if (
+          /\d/.test(normalizedInput) &&
+          normalizedInput.replace(/\s+/g, '') === normalizedVariation.replace(/\s+/g, '')
+        ) {
           score = 0.95;
         }
         // One contains the other
-        else if (normalizedInput.includes(normalizedVariation) || 
-                 normalizedVariation.includes(normalizedInput)) {
+        else if (
+          normalizedInput.includes(normalizedVariation) ||
+          normalizedVariation.includes(normalizedInput)
+        ) {
           score = 0.9;
         }
         // First word exact match
@@ -325,7 +330,7 @@ const NormalizationDialogForField = ({
           bestMatch = {
             ...carrier,
             matchedVariation: variation,
-            score: score
+            score: score,
           };
         }
       });
@@ -425,7 +430,7 @@ const NormalizationDialogForField = ({
               Group {group.id} ({group.count} records):{' '}
               {group.values.map((item) => item.value).join(', ')}
             </p>
-            
+
             {/* Show match details for all similarity modes */}
             <div className="text-xs mb-1">
               {(() => {
@@ -434,10 +439,12 @@ const NormalizationDialogForField = ({
                   if (!match) return <span className="text-gray-500">No match found</span>;
 
                   const confidence = Math.round(match.score * 100);
-                  const confidenceColor = 
-                    confidence > 80 ? 'text-green-600' :
-                    confidence > 50 ? 'text-amber-600' :
-                    'text-red-600';
+                  const confidenceColor =
+                    confidence > 80
+                      ? 'text-green-600'
+                      : confidence > 50
+                      ? 'text-amber-600'
+                      : 'text-red-600';
 
                   return (
                     <div className={confidenceColor}>
@@ -456,8 +463,8 @@ const NormalizationDialogForField = ({
                   // Calculate similarity score for other modes
                   const primaryValue = group.values[0].value;
                   const otherValues = group.values.slice(1);
-                  
-                  const scores = otherValues.map(item => {
+
+                  const scores = otherValues.map((item) => {
                     let score;
                     if (similarityMode === 'weighted') {
                       score = configurableWeightedSimilarity(primaryValue, item.value, sigWeight);
@@ -468,10 +475,8 @@ const NormalizationDialogForField = ({
                   });
 
                   const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-                  const confidenceColor = 
-                    avgScore > 80 ? 'text-green-600' :
-                    avgScore > 50 ? 'text-amber-600' :
-                    'text-red-600';
+                  const confidenceColor =
+                    avgScore > 80 ? 'text-green-600' : avgScore > 50 ? 'text-amber-600' : 'text-red-600';
 
                   return (
                     <div className={confidenceColor}>
@@ -480,7 +485,9 @@ const NormalizationDialogForField = ({
                         <span className="italic">({avgScore}% confidence)</span>
                       </div>
                       <div className="text-gray-500 text-xs">
-                        {similarityMode === 'weighted' ? 'Using weighted word matching' : 'Using Jaccard similarity'}
+                        {similarityMode === 'weighted'
+                          ? 'Using weighted word matching'
+                          : 'Using Jaccard similarity'}
                         {fieldName === 'Agreement Classification' && (
                           <span className="block">
                             {scores.map((score, idx) => (
@@ -589,44 +596,94 @@ const ContractViewer = () => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/data/contract_analysis_output (3-21).csv');
+        const response = await fetch('/data/contract_analysis_output (4-6).csv');
         const text = await response.text();
         Papa.parse(text, {
           header: true,
           skipEmptyLines: true,
           complete: (results) => {
-            const dataWithId = results.data.map((row, index) => ({ ...row, id: index }));
+            // Add ID and properly handle all fields
+            const dataWithId = results.data.map((row, index) => {
+              // Safely parse locations string
+              let locations = [];
+              let connectionServices = [];
+
+              // Improved cleaning: if the field does not start with '[' assume it is a plain value
+              try {
+                if (row['Locations']) {
+                  let locStr = row['Locations'];
+                  if (!locStr.trim().startsWith('[')) {
+                    locStr = `[${locStr}]`;
+                  }
+                  const cleanedLocations = locStr
+                    .replace(/'/g, '"')
+                    .replace(/\[\s*"/g, '["')
+                    .replace(/"\s*\]/g, '"]')
+                    .replace(/"\s*,\s*"/g, '","');
+                  locations = JSON.parse(cleanedLocations);
+                }
+              } catch (e) {
+                console.warn('Failed to parse locations for row:', row['source_filename']);
+                locations = [row['Locations'] || ''];
+              }
+
+              try {
+                if (row['Connection Services']) {
+                  let servStr = row['Connection Services'];
+                  if (!servStr.trim().startsWith('[')) {
+                    servStr = `[${servStr}]`;
+                  }
+                  const cleanedServices = servStr
+                    .replace(/'/g, '"')
+                    .replace(/\[\s*"/g, '["')
+                    .replace(/"\s*\]/g, '"]')
+                    .replace(/"\s*,\s*"/g, '","');
+                  connectionServices = JSON.parse(cleanedServices);
+                }
+              } catch (e) {
+                console.warn('Failed to parse Connection Services for row:', row['source_filename']);
+                connectionServices = [row['Connection Services'] || ''];
+              }
+
+              return {
+                ...row,
+                id: index,
+                'Agreement Classification': row['Agreement Type'] || 'N/A',
+                'Service Locations': locations,
+                'Connection Services': connectionServices,
+              };
+            });
+
+            // Compute unique values with counts
+            const party1Counts = _.countBy(dataWithId, row => row['Party1 Name']);
+            const party2Counts = _.countBy(dataWithId, row => row['Party2 Name']);
+            const classificationCounts = _.countBy(dataWithId, row => row['Agreement Type']);
+
+            // Convert to array of objects with value and count
+            setUniqueParty1(
+              Object.entries(party1Counts)
+                .filter(([value]) => value) // Filter out empty values
+                .map(([value, count]) => ({ value, count }))
+                .sort((a, b) => a.value.localeCompare(b.value))
+            );
+
+            setUniqueParty2(
+              Object.entries(party2Counts)
+                .filter(([value]) => value)
+                .map(([value, count]) => ({ value, count }))
+                .sort((a, b) => a.value.localeCompare(b.value))
+            );
+
+            setUniqueClassifications(
+              Object.entries(classificationCounts)
+                .filter(([value]) => value)
+                .map(([value, count]) => ({ value, count }))
+                .sort((a, b) => a.value.localeCompare(b.value))
+            );
+
             setOriginalContracts(dataWithId);
             const normalizedData = normalizeContracts(dataWithId, similarityThreshold);
             setContracts(normalizedData);
-
-            // Compute frequency counts for filters.
-            const party1Counts = _.countBy(dataWithId, (row) => row['Party1 Name']);
-            const party2Counts = _.countBy(dataWithId, (row) => row['Party2 Name']);
-            const classificationCounts = _.countBy(dataWithId, (row) => row['Agreement Classification']);
-
-            const uniqueParty1Arr = Object.keys(party1Counts)
-              .filter((v) => v)
-              .map((v) => ({ value: v, count: party1Counts[v] }));
-            uniqueParty1Arr.sort((a, b) => a.value.localeCompare(b.value));
-            setUniqueParty1(uniqueParty1Arr);
-
-            const uniqueParty2Arr = Object.keys(party2Counts)
-              .filter((v) => v)
-              .map((v) => ({ value: v, count: party2Counts[v] }));
-            uniqueParty2Arr.sort((a, b) => a.value.localeCompare(b.value));
-            setUniqueParty2(uniqueParty2Arr);
-
-            const uniqueClassificationsArr = Object.keys(classificationCounts)
-              .filter((v) => v)
-              .map((v) => ({ value: v, count: classificationCounts[v] }));
-            uniqueClassificationsArr.sort((a, b) => a.value.localeCompare(b.value));
-            setUniqueClassifications(uniqueClassificationsArr);
-
-            setLoading(false);
-          },
-          error: (error) => {
-            setError(`Error parsing CSV: ${error.message}`);
             setLoading(false);
           },
         });
@@ -682,13 +739,23 @@ const ContractViewer = () => {
       for (let j = i + 1; j < contracts.length; j++) {
         const c2 = contracts[j];
         if (visited.has(c2.id)) continue;
+        // Check Recurring and Nonrecurring Charges
         if (
           (c1[RECURRING_KEY] || '').toString().trim() !== (c2[RECURRING_KEY] || '').toString().trim()
         )
           continue;
         if (
-          (c1[NONRECURRING_KEY] || '').toString().trim() !==
-          (c2[NONRECURRING_KEY] || '').toString().trim()
+          (c1[NONRECURRING_KEY] || '').toString().trim() !== (c2[NONRECURRING_KEY] || '').toString().trim()
+        )
+          continue;
+        // Check Agreement Date
+        if (
+          (c1['Agreement Date'] || '').toString().trim() !== (c2['Agreement Date'] || '').toString().trim()
+        )
+          continue;
+        // Check Service Locations (compare JSON-stringified values)
+        if (
+          JSON.stringify(c1['Service Locations']) !== JSON.stringify(c2['Service Locations'])
         )
           continue;
         const party1Sim = configurableWeightedSimilarity(
@@ -703,7 +770,11 @@ const ContractViewer = () => {
           c1['Agreement Classification'] || '',
           c2['Agreement Classification'] || ''
         );
-        if (party1Sim >= similarityThreshold && party2Sim >= similarityThreshold && classSim >= similarityThreshold) {
+        if (
+          party1Sim >= similarityThreshold &&
+          party2Sim >= similarityThreshold &&
+          classSim >= similarityThreshold
+        ) {
           group.push(c2.id);
           visited.add(c2.id);
         }
@@ -744,8 +815,7 @@ const ContractViewer = () => {
                 isPrimary: id === latestRecord.id,
                 'Party1 Name Updated': latestRecord.contract['Party1 Name'],
                 'Party2 Name Updated': latestRecord.contract['Party2 Name'],
-                'Agreement Classification Updated':
-                  latestRecord.contract['Agreement Classification'],
+                'Agreement Classification Updated': latestRecord.contract['Agreement Classification'],
               }
             : contract
         );
@@ -781,8 +851,10 @@ const ContractViewer = () => {
     const baseFilters =
       (!party1Filter || contract['Party1 Name'] === party1Filter) &&
       (!party2Filter || contract['Party2 Name'] === party2Filter) &&
-      (!classificationFilter || contract['Agreement Classification'] === classificationFilter);
+      (!classificationFilter || contract['Agreement Type'] === classificationFilter);
+    
     let showRecord = baseFilters;
+    
     if (hideDuplicates) {
       if (duplicateGroups[contract.id] !== undefined && !contract.isPrimary) {
         showRecord = false;
@@ -885,8 +957,8 @@ const ContractViewer = () => {
   // Render Main View
   // --------------------
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
+    <div className="p-6 bg-gray-50 min-h-screen w-full m-5">
+      <div className="w-full">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
@@ -1042,6 +1114,8 @@ const ContractViewer = () => {
                 <th className="p-3 text-left font-semibold text-gray-700">Term</th>
                 <th className="p-3 text-left font-semibold text-gray-700">Recurring Charges</th>
                 <th className="p-3 text-left font-semibold text-gray-700">Nonrecurring Charges</th>
+                <th className="p-3 text-left font-semibold text-gray-700">Service Locations</th>
+                <th className="p-3 text-left font-semibold text-gray-700">Connection Services</th>
                 <th className="p-3 text-left font-semibold text-gray-700">
                   <div className="flex items-center justify-between">
                     <span>Source File</span>
@@ -1107,7 +1181,9 @@ const ContractViewer = () => {
                         <input
                           type="text"
                           value={editedData['Agreement Classification'] || ''}
-                          onChange={(e) => handleInputChange('Agreement Classification', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange('Agreement Classification', e.target.value)
+                          }
                           className="w-full p-1 border border-gray-300 rounded"
                         />
                       </td>
@@ -1175,6 +1251,23 @@ const ContractViewer = () => {
                           className="w-full p-1 border border-gray-300 rounded"
                         />
                       </td>
+                      {/* Follow the header order: Service Locations first, then Connection Services */}
+                      <td className="p-3">
+                        <input
+                          type="text"
+                          value={editedData['Service Locations'] || ''}
+                          onChange={(e) => handleInputChange('Service Locations', e.target.value)}
+                          className="w-full p-1 border border-gray-300 rounded"
+                        />
+                      </td>
+                      <td className="p-3">
+                        <input
+                          type="text"
+                          value={editedData['Connection Services'] || ''}
+                          onChange={(e) => handleInputChange('Connection Services', e.target.value)}
+                          className="w-full p-1 border border-gray-300 rounded"
+                        />
+                      </td>
                       <td className="p-3">
                         <div className="flex space-x-2">
                           <button
@@ -1235,6 +1328,21 @@ const ContractViewer = () => {
                       <td className="p-3">{contract['Term'] || 'N/A'}</td>
                       <td className="p-3">{contract[RECURRING_KEY] || 'N/A'}</td>
                       <td className="p-3">{contract[NONRECURRING_KEY] || 'N/A'}</td>
+                      {/* Display columns in header order */}
+                      <td className="p-3">
+                        {contract['Service Locations']
+                          ? (Array.isArray(contract['Service Locations'])
+                              ? contract['Service Locations'].join(', ')
+                              : contract['Service Locations'])
+                          : '-'}
+                      </td>
+                      <td className="p-3">
+                        {contract['Connection Services']
+                          ? (Array.isArray(contract['Connection Services'])
+                              ? contract['Connection Services'].join(', ')
+                              : contract['Connection Services'])
+                          : '-'}
+                      </td>
                       <td className="p-3">
                         <div className="flex items-center justify-between">
                           <span className="truncate max-w-xs" title={contract['source_filename']}>
@@ -1258,10 +1366,7 @@ const ContractViewer = () => {
                                 }
                                 style={{
                                   backgroundColor: showDuplicateGroups
-                                    ? getDuplicateGroupColor(duplicateGroups[contract.id]).replace(
-                                        '0.2',
-                                        '0.5'
-                                      )
+                                    ? getDuplicateGroupColor(duplicateGroups[contract.id]).replace('0.2', '0.5')
                                     : undefined,
                                   color: showDuplicateGroups ? '#333' : undefined,
                                   border: showDuplicateGroups ? '1px solid rgba(0,0,0,0.2)' : undefined,
@@ -1293,7 +1398,7 @@ const ContractViewer = () => {
               ))}
               {filteredContracts.length === 0 && (
                 <tr>
-                  <td colSpan="11" className="p-8 text-center text-gray-500">
+                  <td colSpan="13" className="p-8 text-center text-gray-500">
                     <div className="flex flex-col items-center justify-center">
                       <svg
                         className="w-12 h-12 text-gray-400 mb-4"
@@ -1397,7 +1502,11 @@ const ContractViewer = () => {
           uniqueValues={uniqueClassifications}
           initialThreshold={similarityThreshold}
           onApply={(mapping, newThreshold) => {
-            updateNormalizationForField('Agreement Classification', 'Agreement Classification Normalized', mapping);
+            updateNormalizationForField(
+              'Agreement Classification',
+              'Agreement Classification Normalized',
+              mapping
+            );
             setSimilarityThreshold(newThreshold);
             setShowNormalizationClassification(false);
           }}
