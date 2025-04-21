@@ -6,7 +6,6 @@ import Papa from 'papaparse';
 // TransactionRow Component
 // -----------------------------
 // Wrapped in React.memo with a comparator for performance.
-// (You can consider a deep-equality check with lodash if needed.)
 const TransactionRow = React.memo(
   ({
     transaction,
@@ -256,8 +255,9 @@ const renderReconciliation = (
 // -----------------------------
 // Main Component
 // -----------------------------
-const ImprovedMultiStatementBudget = () => {
+const MultiStatementBudget = () => {
   // State declarations
+  // Changed fileNames to hold objects (with "name" and "accountType") for proper management.
   const [transactions, setTransactions] = useState([]);
   const [fileNames, setFileNames] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -296,21 +296,25 @@ const ImprovedMultiStatementBudget = () => {
   const handleFileUpload = useCallback((event) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
-
+  
     setLoading(true);
     setMessage(`Processing ${files.length} file(s)...`);
     setError('');
     setDebugInfo('');
-
+  
     let newTransactions = [];
     let newFileNames = [...fileNames];
     let filesProcessed = 0;
     const debugLog = [];
-
+  
     Array.from(files).forEach((file) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = e.target.result;
+  
+        // Save the file content to localStorage
+        localStorage.setItem(`fileContent_${file.name}`, text);
+  
         debugLog.push(`File: ${file.name} - First 100 chars: ${text.substring(0, 100)}`);
         Papa.parse(text, {
           header: true,
@@ -318,13 +322,16 @@ const ImprovedMultiStatementBudget = () => {
           dynamicTyping: true,
           complete: (results) => {
             if (results.data && results.data.length > 0) {
-              const columns = results.meta.fields || [];
-              debugLog.push(`File: ${file.name} - Columns found: ${columns.join(', ')}`);
               const processedData = processTransactions(results.data, file.name);
               debugLog.push(`File: ${file.name} - Processed ${processedData.length} transactions`);
               newTransactions = [...newTransactions, ...processedData];
-              if (!newFileNames.includes(file.name)) {
-                newFileNames.push(file.name);
+              if (!newFileNames.some((f) => f.name === file.name)) {
+                // Save the full path along with the file name
+                newFileNames.push({
+                  name: file.name,
+                  path: file.webkitRelativePath || file.name, // Use `webkitRelativePath` if available
+                  accountType: 'Personal',
+                });
               }
             } else {
               debugLog.push(`File: ${file.name} - No valid data found or parsing failed`);
@@ -332,8 +339,7 @@ const ImprovedMultiStatementBudget = () => {
             filesProcessed++;
             if (filesProcessed === files.length) {
               const combinedTransactions = [...transactions, ...newTransactions];
-              const sortedTransactions = combinedTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-              const uniqueTransactions = removeDuplicates(sortedTransactions);
+              const uniqueTransactions = removeDuplicates(combinedTransactions);
               debugLog.push(`Total transactions after processing: ${uniqueTransactions.length}`);
               setDebugInfo(debugLog.join('\n'));
               setTransactions(uniqueTransactions);
@@ -378,29 +384,48 @@ const ImprovedMultiStatementBudget = () => {
   }, [fileNames, transactions]);
 
   // New wrapper that checks for metadata then calls the original upload
-  const handleFileUploadWithMetadata = useCallback((event) => {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target.result;
-        const lines = text.split('\n');
-        const metadataLine = lines.find((line) => line.startsWith('# METADATA='));
-        if (metadataLine) {
-          try {
-            const metadata = JSON.parse(metadataLine.replace('# METADATA=', ''));
-            if (metadata.endingBalances) {
-              setEndingBalances(metadata.endingBalances);
+  const handleFileUploadWithMetadata = useCallback(
+    (event) => {
+      const files = event.target.files;
+      if (files && files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target.result;
+          const lines = text.split('\n');
+          // Look for a metadata line starting with the expected tag.
+          const metadataLine = lines.find((line) =>
+            line.startsWith('# METADATA=')
+          );
+          if (metadataLine) {
+            try {
+              const metadata = JSON.parse(
+                metadataLine.replace('# METADATA=', '')
+              );
+              // Restore the ending balances from metadata.
+              if (metadata.endingBalances) {
+                setEndingBalances(metadata.endingBalances);
+              }
+              // Restore the edited categories if available.
+              if (metadata.editedCategories) {
+                setEditedCategories(metadata.editedCategories);
+              }
+              // Restore the source files (file names and account types).
+              if (metadata.sourceFiles) {
+                setFileNames(metadata.sourceFiles);
+              }
+            } catch (e) {
+              console.error('Error parsing metadata:', e);
             }
-          } catch (e) {
-            console.error('Error parsing metadata:', e);
           }
-        }
-      };
-      reader.readAsText(files[0]);
-    }
-    handleFileUpload(event);
-  }, [handleFileUpload]);
+          // Proceed with processing the CSV transactions.
+          // (This call uses your original file-upload handler.)
+          handleFileUpload(event);
+        };
+        reader.readAsText(files[0]);
+      }
+    },
+    [handleFileUpload]
+  );  
 
   // -----------------------------
   // Helper Functions (CSV parsing, deduplication, formatting)
@@ -849,43 +874,64 @@ const ImprovedMultiStatementBudget = () => {
     const renderCategoryBreakdown = (month) => {
       if (!month || !monthlyData[month]) return null;
       const data = monthlyData[month];
-
+    
       // Separate transactions into banking vs. credit card
       const bankingTransactions = data.transactions.filter(
-        (t) => !t.category.toLowerCase().includes('credit card')
+        (t) => !t.category.toLowerCase().includes('credit card') && !t.isCredit
       );
-      const creditTransactions = data.transactions.filter((t) =>
-        t.category.toLowerCase().includes('credit card')
+      const creditTransactions = data.transactions.filter((t) => t.isCredit);
+    
+      // Group banking transactions by account (source)
+      const bankingAccounts = bankingTransactions.reduce((acc, t) => {
+        if (!acc[t.source]) acc[t.source] = [];
+        acc[t.source].push(t);
+        return acc;
+      }, {});
+    
+      // Calculate starting and ending balances for each account
+      const accountBalances = Object.entries(bankingAccounts).map(
+        ([account, transactions]) => {
+          const sortedTransactions = transactions.sort(
+            (a, b) => new Date(a.date) - new Date(b.date)
+          );
+          const startingBalance =
+            sortedTransactions[0]?.balance - sortedTransactions[0]?.amount || 0;
+          const endingBalance =
+            sortedTransactions[sortedTransactions.length - 1]?.balance || 0;
+    
+          return { account, startingBalance, endingBalance };
+        }
       );
-      const bankingStartBalance =
-        bankingTransactions.filter((t) => t.balance !== undefined)
-          .sort((a, b) => new Date(a.date) - new Date(b.date))[0]?.balance || 0;
-      const bankingEndBalance =
-        bankingTransactions.filter((t) => t.balance !== undefined)
-          .sort((a, b) => new Date(b.date) - new Date(a.date))[0]?.balance || 0;
+    
+      // Banking calculations
       const bankingIncome = bankingTransactions
-        .filter((t) => t.amount > 0 || t.category === 'MISC_CREDIT')
+        .filter((t) => t.amount > 0)
         .reduce((sum, t) => sum + Math.abs(t.amount), 0);
       const bankingExpenses = bankingTransactions
-        .filter((t) => t.amount < 0 && t.category !== 'MISC_CREDIT')
+        .filter((t) => t.amount < 0)
         .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    
       const bankingIncomeByCategory = {};
       bankingTransactions.forEach((t) => {
-        if (t.amount > 0 || t.category === 'MISC_CREDIT') {
+        if (t.amount > 0) {
           bankingIncomeByCategory[t.category] =
             (bankingIncomeByCategory[t.category] || 0) + Math.abs(t.amount);
         }
       });
+    
       const bankingExpensesByCategory = {};
       bankingTransactions.forEach((t) => {
-        if (t.amount < 0 && t.category !== 'MISC_CREDIT') {
+        if (t.amount < 0) {
           bankingExpensesByCategory[t.category] =
             (bankingExpensesByCategory[t.category] || 0) + Math.abs(t.amount);
         }
       });
+    
+      // Credit card calculations
       const creditExpenses = creditTransactions
         .filter((t) => t.amount < 0)
         .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    
       const creditExpensesByCategory = {};
       creditTransactions
         .filter((t) => t.amount < 0)
@@ -893,7 +939,7 @@ const ImprovedMultiStatementBudget = () => {
           creditExpensesByCategory[t.category] =
             (creditExpensesByCategory[t.category] || 0) + Math.abs(t.amount);
         });
-
+    
       return (
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Banking Panel */}
@@ -902,13 +948,21 @@ const ImprovedMultiStatementBudget = () => {
               Banking Summary
             </h4>
             <div className="space-y-4">
-              <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                <span className="text-sm font-medium text-gray-700">
-                  Starting Balance
-                </span>
-                <span className="text-sm font-bold">
-                  {formatCurrency(bankingStartBalance)}
-                </span>
+              <div className="p-2 bg-gray-50 rounded">
+                <h5 className="text-sm font-medium text-gray-700 mb-2">
+                  Starting Balances by Account
+                </h5>
+                {accountBalances.map(({ account, startingBalance }) => (
+                  <div
+                    key={account}
+                    className="flex justify-between items-center text-sm"
+                  >
+                    <span className="text-gray-600">{account}</span>
+                    <span className="font-bold">
+                      {formatCurrency(startingBalance)}
+                    </span>
+                  </div>
+                ))}
               </div>
               <div className="border-t pt-4">
                 <h5 className="text-sm font-medium text-gray-600 mb-2">
@@ -963,38 +1017,20 @@ const ImprovedMultiStatementBudget = () => {
                 </div>
               </div>
               <div className="border-t pt-4">
-                <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                  <span className="text-sm font-medium text-gray-700">
-                    Calculated Ending Balance
-                  </span>
-                  <span className="text-sm font-bold">
-                    {formatCurrency(bankingEndBalance)}
-                  </span>
-                </div>
-              </div>
-              <div className="border-t pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">
-                    Actual Ending Balance
-                  </span>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="number"
-                      value={endingBalances[month] || ''}
-                      onChange={(e) =>
-                        handleEndingBalanceChange(month, e.target.value)
-                      }
-                      className="w-32 p-1 border rounded text-right"
-                      step="0.01"
-                      placeholder="Enter balance"
-                    />
-                    <span className="text-sm font-bold">
-                      {endingBalances[month]
-                        ? formatCurrency(endingBalances[month])
-                        : '---'}
+                <h5 className="text-sm font-medium text-gray-700 mb-2">
+                  Calculated Ending Balances by Account
+                </h5>
+                {accountBalances.map(({ account, endingBalance }) => (
+                  <div
+                    key={account}
+                    className="flex justify-between items-center text-sm"
+                  >
+                    <span className="text-gray-600">{account}</span>
+                    <span className="font-bold">
+                      {formatCurrency(endingBalance)}
                     </span>
                   </div>
-                </div>
+                ))}
               </div>
             </div>
           </div>
@@ -1235,9 +1271,9 @@ const ImprovedMultiStatementBudget = () => {
         <h4 className="text-md font-medium mt-6 mb-3">Imported Files</h4>
         <div className="overflow-auto max-h-36">
           <ul className="divide-y divide-gray-200">
-            {Object.entries(fileNames.reduce((acc, name) => {
-              const filtered = transactions.filter((t) => t.source === name);
-              acc[name] = {
+            {Object.entries(fileNames.reduce((acc, file) => {
+              const filtered = transactions.filter((t) => t.source === file.name);
+              acc[file.name] = {
                 count: filtered.length,
                 income: filtered.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0),
                 expenses: filtered.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0)
@@ -1548,6 +1584,71 @@ const ImprovedMultiStatementBudget = () => {
     }));
   }, []);
 
+  // -----------------------------
+  // NEW: Source Files Management Functions
+  // -----------------------------
+  const handleAccountTypeChange = useCallback((fileName, accountType) => {
+    setFileNames((prevFiles) =>
+      prevFiles.map((file) =>
+        file.name === fileName ? { ...file, accountType } : file
+      )
+    );
+  }, []);
+
+  const handleSaveSourceFiles = useCallback(() => {
+    localStorage.setItem('sourceFiles', JSON.stringify(fileNames));
+    setMessage("Source files saved successfully.");
+  }, [fileNames]);
+
+  const handleLoadSourceFiles = useCallback(() => {
+    const loadedFiles = localStorage.getItem('sourceFiles');
+    if (loadedFiles) {
+      const savedFiles = JSON.parse(loadedFiles);
+      setFileNames(savedFiles);
+      setMessage("Source files loaded successfully!");
+  
+      // Process each saved file
+      savedFiles.forEach((file) => {
+        const fileContent = localStorage.getItem(`fileContent_${file.name}`);
+        if (fileContent) {
+          try {
+            // Parse the file content as CSV
+            Papa.parse(fileContent, {
+              header: true,
+              skipEmptyLines: true,
+              dynamicTyping: true,
+              complete: (results) => {
+                if (results.data && results.data.length > 0) {
+                  const processedData = processTransactions(results.data, file.name);
+                  setTransactions((prevTransactions) => {
+                    const combinedTransactions = [...prevTransactions, ...processedData];
+                    const uniqueTransactions = removeDuplicates(combinedTransactions);
+                    return uniqueTransactions;
+                  });
+                } else {
+                  console.warn(`No valid data found in file: ${file.name}`);
+                  setError(`No valid data found in file: ${file.name}`);
+                }
+              },
+              error: (error) => {
+                console.error(`Error parsing file ${file.name}:`, error);
+                setError(`Error parsing file: ${file.name}`);
+              },
+            });
+          } catch (error) {
+            console.error(`Error processing file ${file.name}:`, error);
+            setError(`Error processing file: ${file.name}`);
+          }
+        } else {
+          console.warn(`No content found for file: ${file.name}`);
+          setError(`No content found for file: ${file.name}`);
+        }
+      });
+    } else {
+      setMessage("No saved source files found.");
+    }
+  }, [setFileNames, setTransactions, setMessage, setError]);
+
   const ExclusionSummary = () => {
     const excludedAmount = transactions
       .filter((t) => excludedTransactions.includes(t.id))
@@ -1574,27 +1675,38 @@ const ImprovedMultiStatementBudget = () => {
     ) : null;
   };
 
-  // CSV Export Functionality (consider using a library like Papa.unparse for more robustness)
+  // CSV Export Functionality
   const saveTransactionsToFile = useCallback(() => {
+    // Build enhanced metadata including additional state fields.
     const metadata = {
-      endingBalances,
+      endingBalances,       // Existing ending balance data.
+      editedCategories,     // Newly included category editing info.
+      sourceFiles: fileNames, // Include source files information.
       exportDate: new Date().toISOString(),
     };
+  
+    // Define CSV header columns.
     const headers = ['date', 'description', 'category', 'amount', 'source'];
+  
+    // Create CSV rows from transactions.
+    const csvRows = transactions.map((t) =>
+      [
+        t.date,
+        `"${t.description.replace(/"/g, '""')}"`,
+        `"${t.category.replace(/"/g, '""')}"`,
+        t.amount,
+        `"${t.source.replace(/"/g, '""')}"`,
+      ].join(',')
+    );
+  
+    // Prepend the metadata as a commented first line.
     const csvContent = [
       '# METADATA=' + JSON.stringify(metadata),
       headers.join(','),
-      ...transactions.map((t) =>
-        [
-          t.date,
-          `"${t.description.replace(/"/g, '""')}"`,
-          `"${t.category.replace(/"/g, '""')}"`,
-          t.amount,
-          `"${t.source.replace(/"/g, '""')}"`,
-        ].join(',')
-      ),
+      ...csvRows,
     ].join('\n');
-
+  
+    // Create a Blob and trigger a download.
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -1606,7 +1718,7 @@ const ImprovedMultiStatementBudget = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, [transactions, endingBalances]);
+  }, [transactions, endingBalances, editedCategories, fileNames]);  
 
   const renderHeaderActions = () => (
     <div className="flex gap-4 mt-4">
@@ -1634,6 +1746,94 @@ const ImprovedMultiStatementBudget = () => {
   );
 
   // -----------------------------
+  // Source Files Renderer
+  // -----------------------------
+  const renderSourceFiles = () => {
+    const handleFileInputClick = () => {
+      const fileInput = document.getElementById('file-upload-input');
+      if (fileInput) {
+        fileInput.click();
+      }
+    };
+
+    return (
+      <div className="p-6 bg-white rounded-lg shadow">
+        <h3 className="text-lg font-medium mb-4">Source Files</h3>
+        <p className="text-sm text-gray-500 mb-6">
+          Upload and manage your source files. Mark them as Personal or Business accounts, and save them for future use.
+        </p>
+        <div className="mb-4">
+          <button
+            onClick={handleFileInputClick}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Select and Upload Files
+          </button>
+          <input
+            id="file-upload-input"
+            type="file"
+            multiple
+            accept=".csv"
+            onChange={handleFileUploadWithMetadata}
+            className="mt-2 block w-full text-sm text-gray-500 border border-gray-300 rounded p-2"
+          />
+          {loading && <p className="text-sm text-gray-500 mt-2">Processing files...</p>}
+          {message && <p className="text-sm text-blue-500 mt-2">{message}</p>}
+          {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+        </div>
+        {fileNames.length > 0 ? (
+          <div className="space-y-4">
+            {fileNames.map((file) => (
+              <div
+                key={file.name}
+                className="p-4 border rounded-lg flex justify-between items-center"
+              >
+                <div>
+                  <p className="text-sm font-medium">{file.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {transactions.filter((t) => t.source === file.name).length} transactions
+                  </p>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <label className="text-sm font-medium text-gray-700">
+                    Account Type:
+                  </label>
+                  <select
+                    value={file.accountType || 'Personal'}
+                    onChange={(e) =>
+                      handleAccountTypeChange(file.name, e.target.value)
+                    }
+                    className="p-2 border rounded text-sm"
+                  >
+                    <option value="Personal">Personal</option>
+                    <option value="Business">Business</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500 text-sm">No source files uploaded yet.</p>
+        )}
+        <div className="mt-6 flex gap-4">
+          <button
+            onClick={handleSaveSourceFiles}
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+          >
+            Save Source Files
+          </button>
+          <button
+            onClick={handleLoadSourceFiles}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Load Source Files
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // -----------------------------
   // Main Render
   // -----------------------------
   return (
@@ -1652,24 +1852,9 @@ const ImprovedMultiStatementBudget = () => {
         </div>
       </header>
       <div className="mb-6">
-        <label className="block mb-2 text-sm font-medium text-gray-700">
-          Upload CSV Files
-        </label>
-        <input
-          type="file"
-          multiple
-          accept=".csv"
-          onChange={handleFileUploadWithMetadata}
-          className="block w-full text-sm text-gray-500 mb-4"
-        />
-        {loading && <p className="text-sm text-gray-500">Processing files...</p>}
-        {message && <p className="text-sm text-blue-500">{message}</p>}
-        {error && <p className="text-sm text-red-500">{error}</p>}
-      </div>
-      <div className="mb-6">
         <div className="border-b border-gray-200 mb-4">
           <nav className="flex -mb-px">
-            {['dashboard', 'current', 'forecast', 'transactions', 'categories', 'debug'].map((tab) => (
+            {['dashboard', 'current', 'forecast', 'transactions', 'categories', 'sourceFiles'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -1685,7 +1870,10 @@ const ImprovedMultiStatementBudget = () => {
           </nav>
         </div>
       </div>
-      {transactions.length > 0 ? (
+      {activeTab === 'sourceFiles' ? (
+        // Always show the source files view regardless of transactions length
+        renderSourceFiles()
+      ) : transactions.length > 0 ? (
         activeTab === 'dashboard'
           ? renderDashboard()
           : activeTab === 'current'
@@ -1696,19 +1884,15 @@ const ImprovedMultiStatementBudget = () => {
           ? renderTransactions()
           : activeTab === 'categories'
           ? renderCategories()
-          : activeTab === 'debug'
-          ? renderDebug()
           : null
       ) : (
         <div className="p-6 bg-white rounded-lg shadow text-center">
           <FileText className="mx-auto text-gray-400 mb-4" size={64} />
           <p className="text-gray-500">
-            No transactions to display. Upload multiple CSV statements to get
-            started.
+            No transactions to display. Upload multiple CSV statements to get started.
           </p>
           <p className="text-sm text-gray-400 mt-2">
-            You can upload bank statements, credit card statements, and other
-            financial CSVs.
+            You can upload bank statements, credit card statements, and other financial CSVs.
           </p>
         </div>
       )}
@@ -1716,4 +1900,4 @@ const ImprovedMultiStatementBudget = () => {
   );
 };
 
-export default ImprovedMultiStatementBudget;
+export default MultiStatementBudget;

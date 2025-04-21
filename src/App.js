@@ -8,8 +8,8 @@ import Curate from "./ContractCurate";
 import Relate from "./Relate";
 import Calendar1 from "./Calendar1";
 import Extractor from "./Extractor";
+import CSVMerge from "./CSVMerge";
 import Budget from "./Budget";
-
 
 function App() {
   const [activeComponent, setActiveComponent] = useState('HomePage');
@@ -31,11 +31,13 @@ function App() {
       case 'Relate':
         return <Relate />;
       case 'Calendar1':
-          return <Calendar1 />;
+        return <Calendar1 />;
       case 'Extractor':
         return <Extractor />;
+      case 'CSVMerge':
+        return <CSVMerge />;
       case 'Budget':
-          return <Budget />;
+        return <Budget />;
       default:
         return <HomePage />;
     }
@@ -44,7 +46,7 @@ function App() {
   return (
     <div>
       <nav className="p-4 bg-gray-100">
-      <button 
+        <button 
           onClick={() => setActiveComponent('HomePage')}
           className="px-4 py-2 mr-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
@@ -97,6 +99,12 @@ function App() {
           className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
           Extractor
+        </button>
+        <button 
+          onClick={() => setActiveComponent('CSVMerge')}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Merge
         </button>
         <button 
           onClick={() => setActiveComponent('Budget')}
