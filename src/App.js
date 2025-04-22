@@ -9,6 +9,7 @@ import Relate from "./Relate";
 import Calendar1 from "./Calendar1";
 import Extractor from "./Extractor";
 import CSVMerge from "./CSVMerge";
+import CSVEditor from "./CSVEditor";
 import Budget from "./Budget";
 
 function App() {
@@ -36,6 +37,8 @@ function App() {
         return <Extractor />;
       case 'CSVMerge':
         return <CSVMerge />;
+      case 'CSVEditor':
+        return <CSVEditor />;
       case 'Budget':
         return <Budget />;
       default:
@@ -105,6 +108,12 @@ function App() {
           className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
           Merge
+        </button>
+        <button 
+          onClick={() => setActiveComponent('CSVEditor')}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Editor
         </button>
         <button 
           onClick={() => setActiveComponent('Budget')}

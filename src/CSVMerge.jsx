@@ -8,7 +8,8 @@ import {
   Trash2,
   Save,
   FileSpreadsheet,
-  Edit
+  Edit,
+  AlertTriangle
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { DndContext, closestCenter } from '@dnd-kit/core';
@@ -80,7 +81,7 @@ const CSVMerge = () => {
     showNotification('Repository exported successfully', 'success');
   };
 
-  // Handle CSV upload
+  // Update the handleFileUpload function
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -96,7 +97,8 @@ const CSVMerge = () => {
             name: file.name,
             fields: results.meta.fields || [],
             data: results.data,
-            mappings: {}
+            mappings: {},
+            merged: false // Initialize merged flag
           };
           setSources((prev) => [...prev, newSource]);
           setCurrentSource(newSource);
@@ -148,16 +150,49 @@ const CSVMerge = () => {
       showNotification('Please map at least one field before merging', 'error');
       return;
     }
+
+    // Check if source is already merged
+    if (currentSource.merged) {
+      setShowConfirmDialog({
+        show: true,
+        title: 'Warning: Data Already Merged',
+        message: 'This data source has already been merged. Merging again will create duplicate records. Do you want to continue?',
+        onConfirm: () => {
+          performMerge();
+          setShowConfirmDialog((s) => ({ ...s, show: false }));
+        },
+        onCancel: () => {
+          setShowConfirmDialog((s) => ({ ...s, show: false }));
+        }
+      });
+      return;
+    }
+
+    performMerge();
+  };
+
+  // Add the performMerge helper function
+  const performMerge = () => {
     const newData = currentSource.data.map((row) => {
       const repoRow = {};
-      Object.entries(mappings).forEach(([srcField, repoField]) => {
+      Object.entries(currentSource.mappings).forEach(([srcField, repoField]) => {
         if (repoField && row[srcField] !== undefined) {
           repoRow[repoField] = row[srcField];
         }
       });
       return repoRow;
     });
+
     setRepository((prev) => [...prev, ...newData]);
+    
+    // Mark the source as merged
+    setSources((prev) =>
+      prev.map((src) =>
+        src.id === currentSource.id ? { ...src, merged: true } : src
+      )
+    );
+    setCurrentSource((prev) => ({ ...prev, merged: true }));
+    
     showNotification(`Added ${newData.length} rows to repository`, 'success');
   };
 
@@ -361,12 +396,17 @@ const CSVMerge = () => {
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar - Sources */}
         <div className="w-64 bg-gray-100 p-4 overflow-y-auto flex flex-col">
+          {/* Left sidebar header */}
           <h2 
-            className={`font-bold mb-2 flex items-center cursor-pointer ${activeView === 'sources' ? 'text-blue-600' : ''}`}
+            className={`font-bold mb-2 flex items-center cursor-pointer ${
+              activeView === 'sources' ? 'text-blue-600' : ''
+            }`}
             onClick={() => toggleView('sources')}
           >
             <FileSpreadsheet size={16} className="mr-2" /> 
-            <span className={`border-b-2 ${activeView === 'sources' ? 'border-blue-600' : 'border-transparent'}`}>
+            <span className={`border-b-2 ${
+              activeView === 'sources' ? 'border-blue-600' : 'border-transparent'
+            }`}>
               Data Sources
             </span>
           </h2>
@@ -380,14 +420,23 @@ const CSVMerge = () => {
                 <div
                   key={source.id}
                   onClick={() => switchSource(source)}
-                  className={`p-2 rounded mb-2 flex justify-between items-center cursor-pointer ${
-                    currentSource?.id === source.id
+                  className={`p-2 rounded mb-2 flex justify-between items-center cursor-pointer 
+                    ${currentSource?.id === source.id
                       ? 'bg-blue-100 border border-blue-300'
+                      : source.merged
+                      ? 'bg-green-50 border border-green-200'
                       : 'bg-white'
-                  }`}
+                    }`}
                 >
                   <div className="truncate flex-1">
-                    <div className="font-medium text-sm">{source.name}</div>
+                    <div className="font-medium text-sm flex items-center">
+                      {source.name}
+                      {source.merged && (
+                        <span className="ml-2 text-xs px-2 py-0.5 bg-green-100 text-green-800 rounded-full">
+                          Merged
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-500">{source.data.length} rows</div>
                   </div>
                   <button
@@ -455,8 +504,15 @@ const CSVMerge = () => {
                       <ArrowRight size={24} className="text-blue-500" />
                       <button
                         onClick={mergeIntoRepository}
-                        className="mt-2 bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
+                        className={`mt-2 px-3 py-1 rounded text-sm flex items-center ${
+                          currentSource?.merged
+                            ? 'bg-yellow-500 hover:bg-yellow-600'
+                            : 'bg-green-500 hover:bg-green-600'
+                        } text-white`}
                       >
+                        {currentSource?.merged && (
+                          <AlertTriangle size={14} className="mr-1" />
+                        )}
                         Merge Data
                       </button>
                     </div>
@@ -481,9 +537,10 @@ const CSVMerge = () => {
 
           {/* Data Preview & Pagination */}
           <div className="flex-1 overflow-auto p-4">
-            {!showRepository ? (
+            {activeView === 'sources' ? (
               currentSource && sourceData.length > 0 ? (
                 <div className="overflow-x-auto">
+                  {/* Source table content */}
                   <table className="min-w-full border bg-white">
                     <thead>
                       <tr className="bg-gray-100">
@@ -579,9 +636,10 @@ const CSVMerge = () => {
                 </div>
               )
             ) : (
-              // Repository View
+              // Repository view
               repository.length > 0 ? (
                 <div className="overflow-x-auto">
+                  {/* Repository table content */}
                   <table className="min-w-full border bg-white">
                     <thead>
                       <tr className="bg-gray-100">
@@ -678,12 +736,17 @@ const CSVMerge = () => {
 
         {/* Right sidebar - Repository controls */}
         <div className="w-64 bg-gray-100 p-4 overflow-y-auto flex flex-col">
+          {/* Right sidebar header */}
           <h2 
-            className={`font-bold mb-2 flex items-center cursor-pointer ${activeView === 'repository' ? 'text-blue-600' : ''}`}
+            className={`font-bold mb-2 flex items-center cursor-pointer ${
+              activeView === 'repository' ? 'text-blue-600' : ''
+            }`}
             onClick={() => toggleView('repository')}
           >
             <Database size={16} className="mr-2" /> 
-            <span className={`border-b-2 ${activeView === 'repository' ? 'border-blue-600' : 'border-transparent'}`}>
+            <span className={`border-b-2 ${
+              activeView === 'repository' ? 'border-blue-600' : 'border-transparent'
+            }`}>
               Repository
             </span>
           </h2>
